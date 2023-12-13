@@ -1,0 +1,22 @@
+[package]
+name = "dualsense-rs"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Rust programmatic wrapper over HID messages sent and received by the PS5 DualSense controller."
+repository = "https://github.com/radu781/dualsense-rs"
+keywords = ["gamepad"]
+exclude = [ ".vscode/*" ]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hidapi = "2.4.1"
+
+[lib]
+name = "dualsense_rs"
+path = "src/lib.rs"
+
+[[example]]
+name = "log_all"
+path = "examples/log.rs"
