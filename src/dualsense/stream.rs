@@ -1,21 +1,11 @@
-// 0x01      0x80   0x81    0x82    0x7d    0x00  0x00 0x38
-// reportID lstickX lstickY rstickX rstickY 8keys lrso
-// 0x08 0x00 0x00 0x00 0x7e 0x88 0xac 0x64
-// 0xfb 0xff 0x00 0x00 0x01 0x00 0x72 0x00
-// 0xa3 0x1f 0xad 0x05 0xca 0xd3 0x9b 0xaf
-// 0x0d 0x81 0xa0 0x70 0x43 0x80 0x00 0x00
-// 0x00 0x2c 0x09 0x09 0x00 0x00 0x00 0x00
-// 0x00 0x52 0xec 0x9b 0xaf 0x10 0x08 0x00
-// 0xf8 0x4d 0xa2 0x26 0x0f 0x19 0x79 0x5a
-
 use hidapi::{HidApi, HidDevice};
 use std::{
     collections::HashMap,
     thread::{self, sleep, JoinHandle},
-    time::Duration, ascii::AsciiExt,
+    time::Duration,
 };
 
-use crate::property_helpers::{DPad, Property, ValueType};
+use crate::properties::{dpad::DPad, property::Property, symbols::Symbols, valuetype::ValueType};
 
 const VENDOR_ID: u16 = 1356;
 const PRODUCT_ID: u16 = 3302;
@@ -57,7 +47,7 @@ impl DualSense {
             }
 
             self.packet_received(&buf);
-            sleep(Duration::from_millis(100));
+            sleep(Duration::from_millis(1000));
         })
     }
 
@@ -117,6 +107,14 @@ impl DualSense {
         self.register_dpad(Property::DPad, cb);
     }
 
+    /// Provide a callback to be called when any symbol button is pressed
+    pub fn on_symbols_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(Symbols) + Send + Sync,
+    {
+        self.register_symbols(Property::Symbols, cb);
+    }
+
     pub fn on_up_pressed<F>(&mut self, cb: &'static F)
     where
         F: Fn(DPad) + Send + Sync,
@@ -151,10 +149,19 @@ impl DualSense {
             .push(Box::new(move |x| cb(x.to_dpad())));
     }
 
+    fn register_symbols<F>(&mut self, prop: Property, cb: &'static F)
+    where
+        F: Fn(Symbols) + Send + Sync,
+    {
+        self.callbacks
+            .entry(prop)
+            .or_insert_with(|| vec![])
+            .push(Box::new(move |x| cb(x.to_symbol())));
+    }
+
     fn packet_received(&mut self, data: &[u8; 64]) {
         self.callbacks.iter().for_each(|(prop, cbs)| {
             let new_val = Self::extract_bytes(prop, data);
-            // let new_val = prop.convert(&data.as_slice()[prop.offset().byte]);
             let mut update = false;
 
             match self.cache.get_mut(prop) {
@@ -182,8 +189,9 @@ impl DualSense {
             let val = data.as_slice()[byte];
 
             for i in prop.offset().bit {
+                let offset = i - prop.offset().bit.start;
                 let current_bit = (val & (1 << i)) >> i;
-                out = out | (current_bit << i);
+                out = out | (current_bit << offset);
             }
             prop.convert(&[out])
         } else {

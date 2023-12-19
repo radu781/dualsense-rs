@@ -16,7 +16,7 @@ fn main() {
     // controller.on_l2_changed(&|l2| println!("right pad x: {l2}"));
     // controller.on_r2_changed(&|r2| println!("right pad y: {r2}"));
 
-    controller.on_dpad_changed(&|dp| println!("pressed {}", dp as u8));
+    controller.on_symbols_changed(&|sym| println!("pressed symbol {}", sym as u8));
 
     let handle = controller.run();
     handle.join().ok();
