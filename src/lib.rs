@@ -6,7 +6,7 @@
 //! 
 //! Log details about the left and right sticks' positions
 //! 
-//! ```rs
+//! ```rust
 //! use dualsense_rs::DualSense;
 //! 
 //! 

@@ -12,10 +12,10 @@ use hidapi::{HidApi, HidDevice};
 use std::{
     collections::HashMap,
     thread::{self, sleep, JoinHandle},
-    time::Duration,
+    time::Duration, ascii::AsciiExt,
 };
 
-use crate::property_helpers::{Property, ValueType};
+use crate::property_helpers::{DPad, Property, ValueType};
 
 const VENDOR_ID: u16 = 1356;
 const PRODUCT_ID: u16 = 3302;
@@ -109,6 +109,27 @@ impl DualSense {
         self.register_u8(Property::R2, cb);
     }
 
+    /// Provide a callback to be called when any dpad button is pressed
+    pub fn on_dpad_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(DPad) + Send + Sync,
+    {
+        self.register_dpad(Property::DPad, cb);
+    }
+
+    pub fn on_up_pressed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(DPad) + Send + Sync,
+    {
+        unimplemented!("trying to figure out how to send `cb` into register_dpad")
+    }
+
+    pub fn on_upright_pressed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(DPad) + Send + Sync,
+    {
+        unimplemented!("trying to figure out how to send `cb` into register_dpad")
+    }
 
     fn register_u8<F>(&mut self, prop: Property, cb: &'static F)
     where
@@ -120,9 +141,20 @@ impl DualSense {
             .push(Box::new(move |x| cb(x.to_u8())));
     }
 
+    fn register_dpad<F>(&mut self, prop: Property, cb: &'static F)
+    where
+        F: Fn(DPad) + Send + Sync,
+    {
+        self.callbacks
+            .entry(prop)
+            .or_insert_with(|| vec![])
+            .push(Box::new(move |x| cb(x.to_dpad())));
+    }
+
     fn packet_received(&mut self, data: &[u8; 64]) {
         self.callbacks.iter().for_each(|(prop, cbs)| {
-            let new_val = prop.convert(&data.as_slice()[prop.offset().byte]);
+            let new_val = Self::extract_bytes(prop, data);
+            // let new_val = prop.convert(&data.as_slice()[prop.offset().byte]);
             let mut update = false;
 
             match self.cache.get_mut(prop) {
@@ -139,5 +171,23 @@ impl DualSense {
                 cbs.iter().for_each(|cb| cb(new_val));
             }
         })
+    }
+
+    fn extract_bytes(prop: &Property, data: &[u8; 64]) -> ValueType {
+        if prop.offset().bit == (0..8) {
+            prop.convert(&data.as_slice()[prop.offset().byte])
+        } else if prop.offset().byte.count() == 1 {
+            let mut out = 0u8;
+            let byte = prop.offset().byte.start;
+            let val = data.as_slice()[byte];
+
+            for i in prop.offset().bit {
+                let current_bit = (val & (1 << i)) >> i;
+                out = out | (current_bit << i);
+            }
+            prop.convert(&[out])
+        } else {
+            todo!()
+        }
     }
 }

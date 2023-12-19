@@ -8,7 +8,7 @@ Rust programmatic wrapper over HID messages sent and received by the PS5 DualSen
 
 Log details about the left and right sticks' positions
 
-```rs
+```rust
 use dualsense_rs::DualSense;
 
 

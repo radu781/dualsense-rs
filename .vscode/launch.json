@@ -40,6 +40,24 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'log_all'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=log_all",
+                    "--package=dualsense-rs"
+                ],
+                "filter": {
+                    "name": "log_all",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

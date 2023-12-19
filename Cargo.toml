@@ -1,6 +1,6 @@
 [package]
 name = "dualsense-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "Rust programmatic wrapper over HID messages sent and received by the PS5 DualSense controller."
