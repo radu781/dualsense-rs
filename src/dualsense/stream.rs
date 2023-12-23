@@ -31,7 +31,7 @@ impl DualSense {
 
     /// Start listening to HID packets from the controller
     pub fn run(mut self) -> JoinHandle<()> {
-        thread::spawn(move || loop {
+         thread::spawn(move || loop {
             let mut buf = [0u8; PACKET_SIZE];
             let bytes_read = self.device.read(&mut buf);
             match bytes_read {
@@ -47,7 +47,7 @@ impl DualSense {
             }
 
             self.packet_received(&buf);
-            sleep(Duration::from_millis(1000));
+            sleep(Duration::from_millis(100));
         })
     }
 
@@ -83,20 +83,68 @@ impl DualSense {
         self.register_u8(Property::RightPadY, cb);
     }
 
-    /// Provide a callback to be called when the L2 button changes
+    /// Provide a callback to be called when the L1 button is pressed
+    pub fn on_l1_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::L1, cb);
+    }
+
+    /// Provide a callback to be called when the R1 button is pressed
+    pub fn on_r1_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::R1, cb);
+    }
+
+    /// Provide a callback to be called when the L2 button value changes
     pub fn on_l2_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u8) + Send + Sync,
     {
-        self.register_u8(Property::L2, cb);
+        self.register_u8(Property::L2Value, cb);
     }
 
-    /// Provide a callback to be called when the R2 button changes
+    /// Provide a callback to be called when the R2 button value changes
     pub fn on_r2_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u8) + Send + Sync,
     {
-        self.register_u8(Property::R2, cb);
+        self.register_u8(Property::R2Value, cb);
+    }
+
+    /// Provide a callback to be called when the L3 button is pressed
+    pub fn on_l3_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::L3, cb);
+    }
+
+    /// Provide a callback to be called when the R3 button is pressed
+    pub fn on_r3_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::R3, cb);
+    }
+
+    /// Provide a callback to be called when the options button is pressed
+    pub fn on_options_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::Options, cb);
+    }
+
+    /// Provide a callback to be called when the options button is pressed
+    pub fn on_share_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::Share, cb);
     }
 
     /// Provide a callback to be called when any dpad button is pressed
@@ -115,19 +163,19 @@ impl DualSense {
         self.register_symbols(Property::Symbols, cb);
     }
 
-    pub fn on_up_pressed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(DPad) + Send + Sync,
-    {
-        unimplemented!("trying to figure out how to send `cb` into register_dpad")
-    }
+    // pub fn on_up_pressed<F>(&mut self, cb: &'static F)
+    // where
+    //     F: Fn(DPad) + Send + Sync,
+    // {
+    //     unimplemented!("trying to figure out how to send `cb` into register_dpad")
+    // }
 
-    pub fn on_upright_pressed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(DPad) + Send + Sync,
-    {
-        unimplemented!("trying to figure out how to send `cb` into register_dpad")
-    }
+    // pub fn on_upright_pressed<F>(&mut self, cb: &'static F)
+    // where
+    //     F: Fn(DPad) + Send + Sync,
+    // {
+    //     unimplemented!("trying to figure out how to send `cb` into register_dpad")
+    // }
 
     fn register_u8<F>(&mut self, prop: Property, cb: &'static F)
     where
@@ -157,6 +205,16 @@ impl DualSense {
             .entry(prop)
             .or_insert_with(|| vec![])
             .push(Box::new(move |x| cb(x.to_symbol())));
+    }
+
+    fn register_bool<F>(&mut self, prop: Property, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.callbacks
+            .entry(prop)
+            .or_insert_with(|| vec![])
+            .push(Box::new(move |x| cb(x.to_bool())));
     }
 
     fn packet_received(&mut self, data: &[u8; 64]) {
