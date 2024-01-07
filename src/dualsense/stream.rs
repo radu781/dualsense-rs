@@ -47,11 +47,12 @@ impl DualSense {
             }
 
             self.packet_received(&buf);
-            sleep(Duration::from_millis(100));
+            sleep(Duration::from_millis(200));
         })
     }
 
     /// Provide a callback to be called when the left stick's x coordinate changes
+    /// left: 0x00, right: 0xFF
     pub fn on_left_pad_x_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u8) + Send + Sync,
@@ -60,6 +61,7 @@ impl DualSense {
     }
 
     /// Provide a callback to be called when the left stick's y coordinate changes
+    /// up: 0x00, down: 0xFF
     pub fn on_left_pad_y_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u8) + Send + Sync,
@@ -104,7 +106,7 @@ impl DualSense {
     where
         F: Fn(u8) + Send + Sync,
     {
-        self.register_u8(Property::L2Value, cb);
+        self.register_u8(Property::L2, cb);
     }
 
     /// Provide a callback to be called when the R2 button value changes
@@ -112,7 +114,7 @@ impl DualSense {
     where
         F: Fn(u8) + Send + Sync,
     {
-        self.register_u8(Property::R2Value, cb);
+        self.register_u8(Property::R2, cb);
     }
 
     /// Provide a callback to be called when the L3 button is pressed
@@ -163,6 +165,53 @@ impl DualSense {
         self.register_symbols(Property::Symbols, cb);
     }
 
+    /// Provide a callback to be called when the gyroscope X axis is changed
+    pub fn on_gyro_x_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::GyroscopeX, cb);
+    }
+
+    /// Provide a callback to be called when the gyroscope Y axis is changed
+    pub fn on_gyro_y_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::GyroscopeY, cb);
+    }
+
+    /// Provide a callback to be called when the gyroscope Z axis is changed
+    pub fn on_gyro_z_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::GyroscopeZ, cb);
+    }
+
+    /// Provide a callback to be called when the acceleration X axis is changed
+    pub fn on_accel_x_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::AccelerationX, cb);
+    }
+
+    /// Provide a callback to be called when the acceleration Y axis is changed
+    pub fn on_accel_y_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::AccelerationY, cb);
+    }
+
+    /// Provide a callback to be called when the acceleration Z axis is changed
+    pub fn on_accel_z_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::AccelerationZ, cb);
+    }
     // pub fn on_up_pressed<F>(&mut self, cb: &'static F)
     // where
     //     F: Fn(DPad) + Send + Sync,
@@ -185,6 +234,16 @@ impl DualSense {
             .entry(prop)
             .or_insert_with(|| vec![])
             .push(Box::new(move |x| cb(x.to_u8())));
+    }
+
+    fn register_u16<F>(&mut self, prop: Property, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.callbacks
+            .entry(prop)
+            .or_insert_with(|| vec![])
+            .push(Box::new(move |x| cb(x.to_u16())));
     }
 
     fn register_dpad<F>(&mut self, prop: Property, cb: &'static F)
@@ -239,15 +298,15 @@ impl DualSense {
     }
 
     fn extract_bytes(prop: &Property, data: &[u8; 64]) -> ValueType {
-        if prop.offset().bit == (0..8) {
-            prop.convert(&data.as_slice()[prop.offset().byte])
-        } else if prop.offset().byte.count() == 1 {
+        if prop.offset().bits == (0..8) {
+            prop.convert(&data.as_slice()[prop.offset().bytes])
+        } else if prop.offset().bytes.count() == 1 {
             let mut out = 0u8;
-            let byte = prop.offset().byte.start;
+            let byte = prop.offset().bytes.start;
             let val = data.as_slice()[byte];
 
-            for i in prop.offset().bit {
-                let offset = i - prop.offset().bit.start;
+            for i in prop.offset().bits {
+                let offset = i - prop.offset().bits.start;
                 let current_bit = (val & (1 << i)) >> i;
                 out = out | (current_bit << offset);
             }

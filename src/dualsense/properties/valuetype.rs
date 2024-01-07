@@ -20,6 +20,16 @@ impl ValueType {
         }
     }
 
+    pub(crate) fn to_u16(self) -> u16 {
+        match self {
+            ValueType::U8(_) => todo!(),
+            ValueType::U16(v) => v,
+            ValueType::Pad(_) => todo!(),
+            ValueType::Symbol(_) => todo!(),
+            ValueType::Bool(_) => todo!(),
+        }
+    }
+
     pub(crate) fn to_dpad(self) -> DPad {
         match self {
             ValueType::U8(_) => todo!(),
