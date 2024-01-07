@@ -212,19 +212,72 @@ impl DualSense {
     {
         self.register_u16(Property::AccelerationZ, cb);
     }
-    // pub fn on_up_pressed<F>(&mut self, cb: &'static F)
-    // where
-    //     F: Fn(DPad) + Send + Sync,
-    // {
-    //     unimplemented!("trying to figure out how to send `cb` into register_dpad")
-    // }
+    
+    /// Provide a callback to be called when the touchpad is touched
+    pub fn on_touchpad1_pressed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::TouchPadFinger1Active, cb);
+    }
 
-    // pub fn on_upright_pressed<F>(&mut self, cb: &'static F)
-    // where
-    //     F: Fn(DPad) + Send + Sync,
-    // {
-    //     unimplemented!("trying to figure out how to send `cb` into register_dpad")
-    // }
+    /// Provide a callback to be called when the touchpad is touched with the second finger
+    pub fn on_touchpad2_pressed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::TouchPadFinger2Active, cb);
+    }
+
+    /// Provide a callback to be called when the touchpad ID changes
+    pub fn on_touchpad1_id_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u8) + Send + Sync,
+    {
+        self.register_u8(Property::TouchPad1Id, cb);
+    }
+    /// Provide a callback to be called when the touchpad ID changes
+    pub fn on_touchpad2_id_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u8) + Send + Sync,
+    {
+        self.register_u8(Property::TouchPad2Id, cb);
+    }
+    /// Provide a callback to be called when the touchpad input from the first finger
+    /// on the X axis is changed
+    pub fn on_touchpad1_x_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::TouchPad1X, cb);
+    }
+    
+    /// Provide a callback to be called when the touchpad input from the first finger
+    /// on the Y axis is changed
+    pub fn on_touchpad1_y_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::TouchPad1Y, cb);
+    }
+    
+    /// Provide a callback to be called when the touchpad input from the second finger
+    /// on the X axis is changed
+    pub fn on_touchpad2_x_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::TouchPad2X, cb);
+    }
+    
+    /// Provide a callback to be called when the touchpad input from the second finger
+    /// on the Y axis is changed
+    pub fn on_touchpad2_y_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u16) + Send + Sync,
+    {
+        self.register_u16(Property::TouchPad2Y, cb);
+    }
 
     fn register_u8<F>(&mut self, prop: Property, cb: &'static F)
     where

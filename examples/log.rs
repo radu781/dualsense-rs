@@ -22,9 +22,13 @@ fn main() {
     controller.on_gyro_y_changed(&|val| println!("gyro y: {val}"));
     controller.on_gyro_z_changed(&|val| println!("gyro z: {val}"));
 
-    controller.on_accel_x_changed(&|val| println!("accel x: {val}"));
-    controller.on_accel_y_changed(&|val| println!("accel y: {val}"));
-    controller.on_accel_z_changed(&|val| println!("accel z: {val}"));
+    controller.on_touchpad1_x_changed(&|val| println!("touchpad 1 x: {val}"));
+    controller.on_touchpad1_y_changed(&|val| println!("touchpad 1 y: {val}"));
+    controller.on_touchpad2_x_changed(&|val| println!("touchpad 2 x: {val}"));
+    controller.on_touchpad2_y_changed(&|val| println!("touchpad 2 y: {val}"));
+    
+    controller.on_touchpad1_pressed(&|val| println!("touchpad 1 pressed: {val}"));
+    controller.on_touchpad2_pressed(&|val| println!("touchpad 2 pressed: {val}"));
     let handle = controller.run();
     handle.join().ok();
 }
