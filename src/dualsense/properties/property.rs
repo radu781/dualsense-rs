@@ -116,13 +116,13 @@ impl Property {
             | Property::AccelerationY
             | Property::AccelerationZ => ValueType::U16((data[1] as u16) << 8 | data[0] as u16),
 
-            Property::TouchPadFinger1Active => ValueType::Bool(data[0] & 0x80 == 1),
+            Property::TouchPadFinger1Active => ValueType::Bool(data[0] & 0x80 == 0x80),
             Property::TouchPad1Id => ValueType::U8(data[0] & 0x7F),
             Property::TouchPad1X => ValueType::U16(((data[1] as u16 & 0x0F) << 8) | data[0] as u16),
             Property::TouchPad1Y => {
                 ValueType::U16(((data[1] as u16) << 4) | (data[0] as u16 & 0xF0) >> 4)
             }
-            Property::TouchPadFinger2Active => ValueType::Bool(data[0] & 0x80 == 1),
+            Property::TouchPadFinger2Active => ValueType::Bool(data[0] & 0x80 == 0x80),
             Property::TouchPad2Id => ValueType::U8(data[0] & 0x7F),
             Property::TouchPad2X => ValueType::U16((data[1] as u16 & 0x0F) << 8 | data[0] as u16),
             Property::TouchPad2Y => {

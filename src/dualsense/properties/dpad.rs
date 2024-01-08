@@ -1,3 +1,4 @@
+/// Directional pad values
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DPad {
     Up = 0,

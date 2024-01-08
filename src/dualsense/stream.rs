@@ -11,10 +11,11 @@ const VENDOR_ID: u16 = 1356;
 const PRODUCT_ID: u16 = 3302;
 const PACKET_SIZE: usize = 64;
 
+type CBFunction = Box<dyn Fn(ValueType) + Send>;
 /// Main struct used for interacting with the controller
 pub struct DualSense {
     device: HidDevice,
-    callbacks: HashMap<Property, Vec<Box<dyn Fn(ValueType) + Send>>>,
+    callbacks: HashMap<Property, Vec<CBFunction>>,
     cache: HashMap<Property, ValueType>,
 }
 
@@ -31,7 +32,7 @@ impl DualSense {
 
     /// Start listening to HID packets from the controller
     pub fn run(mut self) -> JoinHandle<()> {
-         thread::spawn(move || loop {
+        thread::spawn(move || loop {
             let mut buf = [0u8; PACKET_SIZE];
             let bytes_read = self.device.read(&mut buf);
             match bytes_read {
@@ -49,6 +50,11 @@ impl DualSense {
             self.packet_received(&buf);
             sleep(Duration::from_millis(200));
         })
+    }
+
+    #[allow(dead_code)]
+    fn write(&mut self, _data: u8) {
+        // self.device.write(data);
     }
 
     /// Provide a callback to be called when the left stick's x coordinate changes
@@ -134,19 +140,19 @@ impl DualSense {
     }
 
     /// Provide a callback to be called when the options button is pressed
-    pub fn on_options_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(bool) + Send + Sync,
-    {
-        self.register_bool(Property::Options, cb);
-    }
-
-    /// Provide a callback to be called when the options button is pressed
     pub fn on_share_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(bool) + Send + Sync,
     {
         self.register_bool(Property::Share, cb);
+    }
+
+    /// Provide a callback to be called when the options button is pressed
+    pub fn on_options_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::Options, cb);
     }
 
     /// Provide a callback to be called when any dpad button is pressed
@@ -163,6 +169,30 @@ impl DualSense {
         F: Fn(Symbols) + Send + Sync,
     {
         self.register_symbols(Property::Symbols, cb);
+    }
+
+    /// Provide a callback to be called when the mute button is pressed
+    pub fn on_mute_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::Mute, cb);
+    }
+
+    /// Provide a callback to be called when the touchpad is pressed
+    pub fn on_touchpad_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::TouchPad, cb);
+    }
+
+    /// Provide a callback to be called when the playstation button is pressed
+    pub fn on_playstation_pressed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::PlayStation, cb);
     }
 
     /// Provide a callback to be called when the gyroscope X axis is changed
@@ -212,7 +242,7 @@ impl DualSense {
     {
         self.register_u16(Property::AccelerationZ, cb);
     }
-    
+
     /// Provide a callback to be called when the touchpad is touched
     pub fn on_touchpad1_pressed<F>(&mut self, cb: &'static F)
     where
@@ -251,7 +281,7 @@ impl DualSense {
     {
         self.register_u16(Property::TouchPad1X, cb);
     }
-    
+
     /// Provide a callback to be called when the touchpad input from the first finger
     /// on the Y axis is changed
     pub fn on_touchpad1_y_changed<F>(&mut self, cb: &'static F)
@@ -260,7 +290,7 @@ impl DualSense {
     {
         self.register_u16(Property::TouchPad1Y, cb);
     }
-    
+
     /// Provide a callback to be called when the touchpad input from the second finger
     /// on the X axis is changed
     pub fn on_touchpad2_x_changed<F>(&mut self, cb: &'static F)
@@ -269,7 +299,7 @@ impl DualSense {
     {
         self.register_u16(Property::TouchPad2X, cb);
     }
-    
+
     /// Provide a callback to be called when the touchpad input from the second finger
     /// on the Y axis is changed
     pub fn on_touchpad2_y_changed<F>(&mut self, cb: &'static F)
@@ -285,7 +315,7 @@ impl DualSense {
     {
         self.callbacks
             .entry(prop)
-            .or_insert_with(|| vec![])
+            .or_default()
             .push(Box::new(move |x| cb(x.to_u8())));
     }
 
@@ -295,7 +325,7 @@ impl DualSense {
     {
         self.callbacks
             .entry(prop)
-            .or_insert_with(|| vec![])
+            .or_default()
             .push(Box::new(move |x| cb(x.to_u16())));
     }
 
@@ -305,7 +335,7 @@ impl DualSense {
     {
         self.callbacks
             .entry(prop)
-            .or_insert_with(|| vec![])
+            .or_default()
             .push(Box::new(move |x| cb(x.to_dpad())));
     }
 
@@ -315,7 +345,7 @@ impl DualSense {
     {
         self.callbacks
             .entry(prop)
-            .or_insert_with(|| vec![])
+            .or_default()
             .push(Box::new(move |x| cb(x.to_symbol())));
     }
 
@@ -325,7 +355,7 @@ impl DualSense {
     {
         self.callbacks
             .entry(prop)
-            .or_insert_with(|| vec![])
+            .or_default()
             .push(Box::new(move |x| cb(x.to_bool())));
     }
 
@@ -350,6 +380,17 @@ impl DualSense {
         })
     }
 
+    #[allow(dead_code)]
+    fn debug_print_packet(data: &[u8; PACKET_SIZE]) {
+        data.chunks(8).for_each(|w| {
+            for b in w {
+                print!("{:#04x} ", b)
+            }
+            println!();
+        });
+        println!()
+    }
+
     fn extract_bytes(prop: &Property, data: &[u8; 64]) -> ValueType {
         if prop.offset().bits == (0..8) {
             prop.convert(&data.as_slice()[prop.offset().bytes])
@@ -361,11 +402,17 @@ impl DualSense {
             for i in prop.offset().bits {
                 let offset = i - prop.offset().bits.start;
                 let current_bit = (val & (1 << i)) >> i;
-                out = out | (current_bit << offset);
+                out |= current_bit << offset;
             }
             prop.convert(&[out])
         } else {
             todo!()
         }
+    }
+}
+
+impl Default for DualSense {
+    fn default() -> Self {
+        DualSense::new()
     }
 }

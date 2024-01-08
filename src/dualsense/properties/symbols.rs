@@ -1,3 +1,4 @@
+/// Symbols values
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Symbols {
     Square = 1,

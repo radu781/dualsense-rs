@@ -1,0 +1,17 @@
+name: run linter
+on: [push]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust setup
+        uses: ATiltedTree/setup-rust@v1
+        with:
+          rust-version: stable
+          components: clippy
+      - name: Install libudev
+        run: |
+          sudo apt-get install libudev-dev
+      - name: Check clippy
+        run: cargo clippy --no-deps -- -D --warnings
