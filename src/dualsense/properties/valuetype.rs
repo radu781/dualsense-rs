@@ -4,6 +4,7 @@ use super::{dpad::DPad, symbols::Symbols};
 pub(crate) enum ValueType {
     U8(u8),
     U16(u16),
+    I16(i16),
     Pad(DPad),
     Symbol(Symbols),
     Bool(bool),
@@ -14,6 +15,7 @@ impl ValueType {
         match self {
             ValueType::U8(v) => v,
             ValueType::U16(_) => todo!(),
+            ValueType::I16(_) => todo!(),
             ValueType::Pad(_) => todo!(),
             ValueType::Symbol(_) => todo!(),
             ValueType::Bool(_) => todo!(),
@@ -24,6 +26,18 @@ impl ValueType {
         match self {
             ValueType::U8(_) => todo!(),
             ValueType::U16(v) => v,
+            ValueType::I16(_) => todo!(),
+            ValueType::Pad(_) => todo!(),
+            ValueType::Symbol(_) => todo!(),
+            ValueType::Bool(_) => todo!(),
+        }
+    }
+
+    pub(crate) fn to_i16(self) -> i16 {
+        match self {
+            ValueType::U8(_) => todo!(),
+            ValueType::U16(_) => todo!(),
+            ValueType::I16(v) => v,
             ValueType::Pad(_) => todo!(),
             ValueType::Symbol(_) => todo!(),
             ValueType::Bool(_) => todo!(),
@@ -34,6 +48,7 @@ impl ValueType {
         match self {
             ValueType::U8(_) => todo!(),
             ValueType::U16(_) => todo!(),
+            ValueType::I16(_) => todo!(),
             ValueType::Pad(v) => v,
             ValueType::Symbol(_) => todo!(),
             ValueType::Bool(_) => todo!(),
@@ -44,6 +59,7 @@ impl ValueType {
         match self {
             ValueType::U8(_) => todo!(),
             ValueType::U16(_) => todo!(),
+            ValueType::I16(_) => todo!(),
             ValueType::Pad(_) => todo!(),
             ValueType::Symbol(v) => v,
             ValueType::Bool(_) => todo!(),
@@ -54,6 +70,7 @@ impl ValueType {
         match self {
             ValueType::U8(_) => todo!(),
             ValueType::U16(_) => todo!(),
+            ValueType::I16(_) => todo!(),
             ValueType::Pad(_) => todo!(),
             ValueType::Symbol(_) => todo!(),
             ValueType::Bool(v) => v,

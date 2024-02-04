@@ -1,22 +1,31 @@
 use hidapi::{HidApi, HidDevice};
 use std::{
     collections::HashMap,
+    sync::{Arc, Mutex},
     thread::{self, sleep, JoinHandle},
     time::Duration,
 };
 
-use crate::properties::{dpad::DPad, property::Property, symbols::Symbols, valuetype::ValueType};
+use crate::properties::{
+    dpad::DPad,
+    property::{OutputProperty, Property},
+    symbols::Symbols,
+    valuetype::ValueType,
+};
 
 const VENDOR_ID: u16 = 1356;
 const PRODUCT_ID: u16 = 3302;
 const PACKET_SIZE: usize = 64;
 
 type CBFunction = Box<dyn Fn(ValueType) + Send>;
-/// Main struct used for interacting with the controller
+
+/// Main struct used for interacting with the controller. Everything is thread safe to allow reading, writing,
+/// setting callbacks after the `Self::run` method is called and to send data.
 pub struct DualSense {
-    device: HidDevice,
-    callbacks: HashMap<Property, Vec<CBFunction>>,
-    cache: HashMap<Property, ValueType>,
+    device: Arc<Mutex<HidDevice>>,
+    callbacks: Arc<Mutex<HashMap<Property, Vec<CBFunction>>>>,
+    callback_cache: Arc<Mutex<HashMap<Property, ValueType>>>,
+    output_cache: Arc<Mutex<HashMap<OutputProperty, u8>>>,
 }
 
 impl DualSense {
@@ -24,17 +33,23 @@ impl DualSense {
         let api = HidApi::new().unwrap();
         let device = api.open(VENDOR_ID, PRODUCT_ID).unwrap();
         Self {
-            device,
-            callbacks: HashMap::new(),
-            cache: HashMap::new(),
+            device: Arc::new(Mutex::new(device)),
+            callbacks: Arc::new(Mutex::new(HashMap::new())),
+            callback_cache: Arc::new(Mutex::new(HashMap::new())),
+            output_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Start listening to HID packets from the controller
-    pub fn run(mut self) -> JoinHandle<()> {
+    pub fn run(&mut self) -> JoinHandle<()> {
+        let device = Arc::clone(&self.device);
+        let callbacks = Arc::clone(&self.callbacks);
+        let cache = Arc::clone(&self.callback_cache);
+        let output_cache = Arc::clone(&self.output_cache);
+
         thread::spawn(move || loop {
             let mut buf = [0u8; PACKET_SIZE];
-            let bytes_read = self.device.read(&mut buf);
+            let bytes_read = device.lock().unwrap().read(&mut buf);
             match bytes_read {
                 Ok(PACKET_SIZE) => {}
                 Ok(actual_size) => {
@@ -47,16 +62,32 @@ impl DualSense {
                 }
             }
 
-            self.packet_received(&buf);
-            sleep(Duration::from_millis(200));
+            Self::packet_received(&callbacks.lock().unwrap(), &mut cache.lock().unwrap(), &buf);
+            Self::write(&device.lock().unwrap(), &output_cache.lock().unwrap());
+            sleep(Duration::from_millis(50));
         })
     }
 
-    #[allow(dead_code)]
-    fn write(&mut self, _data: u8) {
-        // self.device.write(data);
+    pub fn set_light_red(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::Red, value);
     }
 
+    pub fn set_light_green(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::Green, value);
+    }
+
+    pub fn set_light_blue(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::Blue, value);
+    }
     /// Provide a callback to be called when the left stick's x coordinate changes
     /// left: 0x00, right: 0xFF
     pub fn on_left_pad_x_changed<F>(&mut self, cb: &'static F)
@@ -198,49 +229,49 @@ impl DualSense {
     /// Provide a callback to be called when the gyroscope X axis is changed
     pub fn on_gyro_x_changed<F>(&mut self, cb: &'static F)
     where
-        F: Fn(u16) + Send + Sync,
+        F: Fn(i16) + Send + Sync,
     {
-        self.register_u16(Property::GyroscopeX, cb);
+        self.register_i16(Property::GyroscopeX, cb);
     }
 
     /// Provide a callback to be called when the gyroscope Y axis is changed
     pub fn on_gyro_y_changed<F>(&mut self, cb: &'static F)
     where
-        F: Fn(u16) + Send + Sync,
+        F: Fn(i16) + Send + Sync,
     {
-        self.register_u16(Property::GyroscopeY, cb);
+        self.register_i16(Property::GyroscopeY, cb);
     }
 
     /// Provide a callback to be called when the gyroscope Z axis is changed
     pub fn on_gyro_z_changed<F>(&mut self, cb: &'static F)
     where
-        F: Fn(u16) + Send + Sync,
+        F: Fn(i16) + Send + Sync,
     {
-        self.register_u16(Property::GyroscopeZ, cb);
+        self.register_i16(Property::GyroscopeZ, cb);
     }
 
     /// Provide a callback to be called when the acceleration X axis is changed
     pub fn on_accel_x_changed<F>(&mut self, cb: &'static F)
     where
-        F: Fn(u16) + Send + Sync,
+        F: Fn(i16) + Send + Sync,
     {
-        self.register_u16(Property::AccelerationX, cb);
+        self.register_i16(Property::AccelerationX, cb);
     }
 
     /// Provide a callback to be called when the acceleration Y axis is changed
     pub fn on_accel_y_changed<F>(&mut self, cb: &'static F)
     where
-        F: Fn(u16) + Send + Sync,
+        F: Fn(i16) + Send + Sync,
     {
-        self.register_u16(Property::AccelerationY, cb);
+        self.register_i16(Property::AccelerationY, cb);
     }
 
     /// Provide a callback to be called when the acceleration Z axis is changed
     pub fn on_accel_z_changed<F>(&mut self, cb: &'static F)
     where
-        F: Fn(u16) + Send + Sync,
+        F: Fn(i16) + Send + Sync,
     {
-        self.register_u16(Property::AccelerationZ, cb);
+        self.register_i16(Property::AccelerationZ, cb);
     }
 
     /// Provide a callback to be called when the touchpad is touched
@@ -252,7 +283,7 @@ impl DualSense {
     }
 
     /// Provide a callback to be called when the touchpad is touched with the second finger
-    pub fn on_touchpad2_pressed<F>(&mut self, cb: &'static F)
+    pub fn on_touchpoint2_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(bool) + Send + Sync,
     {
@@ -260,14 +291,14 @@ impl DualSense {
     }
 
     /// Provide a callback to be called when the touchpad ID changes
-    pub fn on_touchpad1_id_changed<F>(&mut self, cb: &'static F)
+    pub fn on_touchpoint1_id_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u8) + Send + Sync,
     {
         self.register_u8(Property::TouchPad1Id, cb);
     }
     /// Provide a callback to be called when the touchpad ID changes
-    pub fn on_touchpad2_id_changed<F>(&mut self, cb: &'static F)
+    pub fn on_touchpoint2_id_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u8) + Send + Sync,
     {
@@ -293,7 +324,7 @@ impl DualSense {
 
     /// Provide a callback to be called when the touchpad input from the second finger
     /// on the X axis is changed
-    pub fn on_touchpad2_x_changed<F>(&mut self, cb: &'static F)
+    pub fn on_touchpoint2_x_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u16) + Send + Sync,
     {
@@ -302,11 +333,43 @@ impl DualSense {
 
     /// Provide a callback to be called when the touchpad input from the second finger
     /// on the Y axis is changed
-    pub fn on_touchpad2_y_changed<F>(&mut self, cb: &'static F)
+    pub fn on_touchpoint2_y_changed<F>(&mut self, cb: &'static F)
     where
         F: Fn(u16) + Send + Sync,
     {
         self.register_u16(Property::TouchPad2Y, cb);
+    }
+
+    /// Provide a callback to be called when the left stick force trigger is active
+    pub fn on_left_force_enabled<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::L2FeedbackOn, cb);
+    }
+
+    /// Provide a callback to be called when the right stick force trigger is active
+    pub fn on_right_force_enabled<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(bool) + Send + Sync,
+    {
+        self.register_bool(Property::R2FeedbackOn, cb);
+    }
+
+    /// Provide a callback to be called when the left stick force amount changed
+    pub fn on_left_force_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u8) + Send + Sync,
+    {
+        self.register_u8(Property::L2FeedbackValue, cb);
+    }
+
+    /// Provide a callback to be called when the right stick force trigger is active
+    pub fn on_right_force_changed<F>(&mut self, cb: &'static F)
+    where
+        F: Fn(u8) + Send + Sync,
+    {
+        self.register_u8(Property::R2FeedbackValue, cb);
     }
 
     fn register_u8<F>(&mut self, prop: Property, cb: &'static F)
@@ -314,6 +377,8 @@ impl DualSense {
         F: Fn(u8) + Send + Sync,
     {
         self.callbacks
+            .lock()
+            .unwrap()
             .entry(prop)
             .or_default()
             .push(Box::new(move |x| cb(x.to_u8())));
@@ -324,9 +389,23 @@ impl DualSense {
         F: Fn(u16) + Send + Sync,
     {
         self.callbacks
+            .lock()
+            .unwrap()
             .entry(prop)
             .or_default()
             .push(Box::new(move |x| cb(x.to_u16())));
+    }
+
+    fn register_i16<F>(&mut self, prop: Property, cb: &'static F)
+    where
+        F: Fn(i16) + Send + Sync,
+    {
+        self.callbacks
+            .lock()
+            .unwrap()
+            .entry(prop)
+            .or_default()
+            .push(Box::new(move |x| cb(x.to_i16())));
     }
 
     fn register_dpad<F>(&mut self, prop: Property, cb: &'static F)
@@ -334,6 +413,8 @@ impl DualSense {
         F: Fn(DPad) + Send + Sync,
     {
         self.callbacks
+            .lock()
+            .unwrap()
             .entry(prop)
             .or_default()
             .push(Box::new(move |x| cb(x.to_dpad())));
@@ -344,6 +425,8 @@ impl DualSense {
         F: Fn(Symbols) + Send + Sync,
     {
         self.callbacks
+            .lock()
+            .unwrap()
             .entry(prop)
             .or_default()
             .push(Box::new(move |x| cb(x.to_symbol())));
@@ -354,17 +437,23 @@ impl DualSense {
         F: Fn(bool) + Send + Sync,
     {
         self.callbacks
+            .lock()
+            .unwrap()
             .entry(prop)
             .or_default()
             .push(Box::new(move |x| cb(x.to_bool())));
     }
 
-    fn packet_received(&mut self, data: &[u8; 64]) {
-        self.callbacks.iter().for_each(|(prop, cbs)| {
+    fn packet_received(
+        callbacks: &HashMap<Property, Vec<CBFunction>>,
+        cache: &mut HashMap<Property, ValueType>,
+        data: &[u8; 64],
+    ) {
+        callbacks.iter().for_each(|(prop, cbs)| {
             let new_val = Self::extract_bytes(prop, data);
             let mut update = false;
 
-            match self.cache.get_mut(prop) {
+            match cache.get_mut(prop) {
                 Some(old_val) if old_val != &new_val => {
                     update = true;
                 }
@@ -374,10 +463,24 @@ impl DualSense {
                 _ => {}
             }
             if update {
-                self.cache.insert(*prop, new_val);
+                cache.insert(*prop, new_val);
                 cbs.iter().for_each(|cb| cb(new_val));
             }
         })
+    }
+
+    fn write(device: &HidDevice, output_cache: &HashMap<OutputProperty, u8>) {
+        let mut data = [0_u8; 48];
+        data[0] = 0x02;
+        data[1] = 0xFF;
+        data[2] = 0xF7;
+        data[40] = 0x02;
+        data[41] = 0x02;
+
+        for (property, value) in output_cache.iter() {
+            data[property.byte()] = *value;
+        }
+        device.write(&data).ok();
     }
 
     #[allow(dead_code)]

@@ -42,6 +42,11 @@ pub(crate) enum Property {
     TouchPad2Id,
     TouchPad2X,
     TouchPad2Y,
+
+    R2FeedbackOn,
+    L2FeedbackOn,
+    R2FeedbackValue,
+    L2FeedbackValue,
 }
 
 impl Property {
@@ -64,9 +69,9 @@ impl Property {
 
             Property::DPad => Offset::bits(8, 0..4),
             Property::Symbols => Offset::bits(8, 4..8),
-            Property::Mute => Offset::bit(10, 5),
-            Property::TouchPad => Offset::bit(10, 6),
-            Property::PlayStation => Offset::bit(10, 7),
+            Property::PlayStation => Offset::bit(10, 0),
+            Property::TouchPad => Offset::bit(10, 1),
+            Property::Mute => Offset::bit(10, 2),
 
             Property::GyroscopeX => Offset::bytes(16..18),
             Property::GyroscopeY => Offset::bytes(18..20),
@@ -83,6 +88,11 @@ impl Property {
             Property::TouchPad2Id => Offset::bytes(37..38),
             Property::TouchPad2X => Offset::bytes(38..40),
             Property::TouchPad2Y => Offset::bytes(39..41),
+
+            Property::R2FeedbackOn => Offset::bytes(42..43),
+            Property::L2FeedbackOn => Offset::bytes(43..44),
+            Property::R2FeedbackValue => Offset::bytes(42..43),
+            Property::L2FeedbackValue => Offset::bytes(43..44),
         }
     }
 
@@ -114,20 +124,44 @@ impl Property {
             | Property::GyroscopeZ
             | Property::AccelerationX
             | Property::AccelerationY
-            | Property::AccelerationZ => ValueType::U16((data[1] as u16) << 8 | data[0] as u16),
+            | Property::AccelerationZ => ValueType::I16(gyro_accel_into_u16(data)),
 
-            Property::TouchPadFinger1Active => ValueType::Bool(data[0] & 0x80 == 0x80),
+            Property::TouchPadFinger1Active => ValueType::Bool(data[0] & 0x80 == 0),
             Property::TouchPad1Id => ValueType::U8(data[0] & 0x7F),
             Property::TouchPad1X => ValueType::U16(((data[1] as u16 & 0x0F) << 8) | data[0] as u16),
             Property::TouchPad1Y => {
                 ValueType::U16(((data[1] as u16) << 4) | (data[0] as u16 & 0xF0) >> 4)
             }
-            Property::TouchPadFinger2Active => ValueType::Bool(data[0] & 0x80 == 0x80),
+            Property::TouchPadFinger2Active => ValueType::Bool(data[0] & 0x80 == 0),
             Property::TouchPad2Id => ValueType::U8(data[0] & 0x7F),
             Property::TouchPad2X => ValueType::U16((data[1] as u16 & 0x0F) << 8 | data[0] as u16),
             Property::TouchPad2Y => {
                 ValueType::U16(((data[1] as u16) << 4) | (data[0] as u16 & 0xF0) >> 4)
             }
+            Property::R2FeedbackOn | Property::L2FeedbackOn => ValueType::Bool(data[0] & 0x10 == 0x10),
+            Property::R2FeedbackValue | Property::L2FeedbackValue => ValueType::U8(data[0] & 0x0F),
+        }
+    }
+}
+
+fn gyro_accel_into_u16(data: &[u8]) -> i16 {
+    (data[1] as i16) << 8 | data[0] as i16
+}
+
+
+#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+pub(crate) enum OutputProperty {
+    Red,
+    Green,
+    Blue,
+}
+
+impl OutputProperty {
+    pub(crate) fn byte(self) -> usize {
+        match self {
+            OutputProperty::Red => 45,
+            OutputProperty::Green => 46,
+            OutputProperty::Blue => 47,
         }
     }
 }
