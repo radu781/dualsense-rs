@@ -1,7 +1,7 @@
 use dualsense_rs::DualSense;
 
 fn main() {
-    let mut controller = DualSense::new();
+    let mut controller = DualSense::default();
 
     controller.on_gyro_x_changed(&|val| println!("gyro x: {val}"));
     controller.on_gyro_y_changed(&|val| println!("gyro y: {val}"));

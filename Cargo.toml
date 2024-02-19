@@ -28,3 +28,7 @@ path = "examples/triggers.rs"
 [[example]]
 name = "sensors"
 path = "examples/sensors.rs"
+
+[[example]]
+name = "light"
+path = "examples/light.rs"

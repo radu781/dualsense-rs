@@ -1,6 +1,6 @@
 # DualSense
 
-Rust programmatic wrapper over HID messages sent and received by the PS5 DualSense controller. All communication is done via callback functions that are ran in a separate thread.
+Rust programmatic wrapper over HID messages sent and received by the PS5 DualSense controller.
 
 ## Usage
 
@@ -65,3 +65,14 @@ Try examples for:
 ```sh
 cargo run --example <example>
 ```
+
+## Roadmap
+
+Currently the following features are of priority:
+
+- bluetooth support
+- CRC creation and validation
+- charging status
+- improve API:
+    - make callbacks return structs with utilitary methods
+    - fix borrow issue when trying to update local variable in callback

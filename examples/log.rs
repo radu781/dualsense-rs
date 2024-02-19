@@ -1,7 +1,7 @@
 use dualsense_rs::DualSense;
 
 fn main() {
-    let mut controller = DualSense::new();
+    let mut controller = DualSense::default();
 
     controller.on_left_pad_x_changed(&|lpx| println!("left pad x: {lpx}"));
     controller.on_left_pad_y_changed(&|lpy| println!("left pad y: {lpy}"));

@@ -4,14 +4,14 @@ use std::{thread::sleep, time::Duration};
 use dualsense_rs::{properties::trigger_effect::TriggerEffect, DualSense};
 
 fn main() {
-    let mut controller = DualSense::new();
+    let mut controller = DualSense::default();
 
     controller.on_left_force_changed(&|val| println!("left force is {val}"));
     controller.on_right_force_changed(&|val| println!("right force is {val}"));
     controller.on_left_force_enabled(&|val| println!("left force on/off {val}"));
     controller.on_right_force_enabled(&|val| println!("right force on/off {val}"));
 
-    let handle = controller.run();
+    let _handle = controller.run();
     controller.set_left_start_of_resistance(1);
     controller.set_left_param2(100);
     controller.set_left_param3(50);
