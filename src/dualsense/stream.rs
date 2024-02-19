@@ -10,6 +10,7 @@ use crate::properties::{
     dpad::DPad,
     property::{OutputProperty, Property},
     symbols::Symbols,
+    trigger_effect::TriggerEffect,
     valuetype::ValueType,
 };
 
@@ -26,6 +27,7 @@ pub struct DualSense {
     callbacks: Arc<Mutex<HashMap<Property, Vec<CBFunction>>>>,
     callback_cache: Arc<Mutex<HashMap<Property, ValueType>>>,
     output_cache: Arc<Mutex<HashMap<OutputProperty, u8>>>,
+    output_cache_changed: Arc<Mutex<bool>>,
 }
 
 impl DualSense {
@@ -37,6 +39,7 @@ impl DualSense {
             callbacks: Arc::new(Mutex::new(HashMap::new())),
             callback_cache: Arc::new(Mutex::new(HashMap::new())),
             output_cache: Arc::new(Mutex::new(HashMap::new())),
+            output_cache_changed: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -46,6 +49,7 @@ impl DualSense {
         let callbacks = Arc::clone(&self.callbacks);
         let cache = Arc::clone(&self.callback_cache);
         let output_cache = Arc::clone(&self.output_cache);
+        let output_cache_changed = Arc::clone(&self.output_cache_changed);
 
         thread::spawn(move || loop {
             let mut buf = [0u8; PACKET_SIZE];
@@ -63,7 +67,10 @@ impl DualSense {
             }
 
             Self::packet_received(&callbacks.lock().unwrap(), &mut cache.lock().unwrap(), &buf);
-            Self::write(&device.lock().unwrap(), &output_cache.lock().unwrap());
+            if *output_cache_changed.lock().unwrap() {
+                Self::write(&device.lock().unwrap(), &output_cache.lock().unwrap());
+                *output_cache_changed.lock().unwrap() = false;
+            }
             sleep(Duration::from_millis(50));
         })
     }
@@ -481,6 +488,148 @@ impl DualSense {
             data[property.byte()] = *value;
         }
         device.write(&data).ok();
+    }
+
+    /// Set the trigger effect for the left trigger
+    pub fn set_left_trigger_effect(&mut self, trigger_mode: TriggerEffect) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectMode, trigger_mode.byte());
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    pub fn set_left_start_of_resistance(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectParameter1, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Depends on the trigger mode
+    pub fn set_left_param2(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectParameter2, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Only for mode2: the force exerted
+    pub fn set_left_param3(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectParameter3, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Only for mode4|20: the force exerted near release state
+    pub fn set_left_param4(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectParameter4, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Only for mode4|20: the force exerted near middle
+    pub fn set_left_param5(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectParameter5, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+    
+    /// Only for mode4|20: the force exerted at pressed state
+    pub fn set_left_param6(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectParameter6, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+    
+    /// Only for mode4|20: actuation hertz frequency
+    pub fn set_left_param7(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::LeftEffectParameter7, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+    
+    /// Set the trigger effect for the right trigger
+    pub fn set_right_trigger_effect(&mut self, trigger_mode: TriggerEffect) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectMode, trigger_mode.byte());
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    pub fn set_right_start_of_resistance(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectParameter1, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Depends on the trigger mode
+    pub fn set_right_param2(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectParameter2, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Only for mode2: the force exerted
+    pub fn set_right_param3(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectParameter3, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Only for mode4|20: the force exerted near release state
+    pub fn set_right_param4(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectParameter4, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+
+    /// Only for mode4|20: the force exerted near middle
+    pub fn set_right_param5(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectParameter5, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+    
+    /// Only for mode4|20: the force exerted at pressed state
+    pub fn set_right_param6(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectParameter6, value);
+        *self.output_cache_changed.lock().unwrap() = true;
+    }
+    
+    /// Only for mode4|20: actuation hertz frequency
+    pub fn set_right_param7(&mut self, value: u8) {
+        self.output_cache
+            .lock()
+            .unwrap()
+            .insert(OutputProperty::RightEffectParameter7, value);
+        *self.output_cache_changed.lock().unwrap() = true;
     }
 
     #[allow(dead_code)]

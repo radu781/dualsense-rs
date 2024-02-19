@@ -154,6 +154,24 @@ pub(crate) enum OutputProperty {
     Red,
     Green,
     Blue,
+
+    RightEffectMode,
+    RightEffectParameter1,
+    RightEffectParameter2,
+    RightEffectParameter3,
+    RightEffectParameter4,
+    RightEffectParameter5,
+    RightEffectParameter6,
+    RightEffectParameter7,
+
+    LeftEffectMode,
+    LeftEffectParameter1,
+    LeftEffectParameter2,
+    LeftEffectParameter3,
+    LeftEffectParameter4,
+    LeftEffectParameter5,
+    LeftEffectParameter6,
+    LeftEffectParameter7,
 }
 
 impl OutputProperty {
@@ -162,6 +180,25 @@ impl OutputProperty {
             OutputProperty::Red => 45,
             OutputProperty::Green => 46,
             OutputProperty::Blue => 47,
+
+            OutputProperty::RightEffectMode => 11,
+            OutputProperty::RightEffectParameter1 => 12,
+            OutputProperty::RightEffectParameter2 => 13,
+            OutputProperty::RightEffectParameter3 => 14,
+            OutputProperty::RightEffectParameter4 => 15,
+            OutputProperty::RightEffectParameter5 => 16,
+            OutputProperty::RightEffectParameter6 => 17,
+            OutputProperty::RightEffectParameter7 => 18,
+
+            OutputProperty::LeftEffectMode => 22,
+            OutputProperty::LeftEffectParameter1 => 23,
+            OutputProperty::LeftEffectParameter2 => 24,
+            OutputProperty::LeftEffectParameter3 => 25,
+            OutputProperty::LeftEffectParameter4 => 26,
+            OutputProperty::LeftEffectParameter5 => 27,
+            OutputProperty::LeftEffectParameter6 => 28,
+            OutputProperty::LeftEffectParameter7 => 29,
+            
         }
     }
 }

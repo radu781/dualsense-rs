@@ -1,5 +1,6 @@
-pub(crate) mod dpad;
+pub mod dpad;
 pub(crate) mod offset;
 pub(crate) mod property;
-pub(crate) mod symbols;
+pub mod symbols;
+pub mod trigger_effect;
 pub(crate) mod valuetype;
