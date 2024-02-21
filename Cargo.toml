@@ -32,3 +32,11 @@ path = "examples/sensors.rs"
 [[example]]
 name = "light"
 path = "examples/light.rs"
+
+[[example]]
+name = "state"
+path = "examples/state.rs"
+
+[[example]]
+name = "combo"
+path = "examples/combo.rs"

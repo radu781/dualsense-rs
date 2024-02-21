@@ -1,4 +1,4 @@
-use super::{offset::Offset, valuetype::ValueType};
+use super::{dpad::DPad, offset::Offset, symbols::Symbols, valuetype::ValueType};
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
 pub(crate) enum InputProperty {
@@ -207,4 +207,11 @@ impl OutputProperty {
             OutputProperty::PlayerLight => 44,
         }
     }
+}
+
+pub enum ComboProperty {
+    Symbol(Symbols),
+    DPad(DPad),
+    LB,
+    RB,
 }

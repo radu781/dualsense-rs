@@ -76,3 +76,5 @@ Currently the following features are of priority:
 - improve API:
     - make callbacks return structs with utilitary methods
     - fix borrow issue when trying to update local variable in callback
+- combos:
+    - add the possibility to detect when multiple keys are pressed in a time frame
