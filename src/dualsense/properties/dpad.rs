@@ -1,5 +1,5 @@
 /// Directional pad values
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum DPad {
     Up = 0,
     UpRight = 1,
@@ -25,5 +25,11 @@ impl From<u8> for DPad {
             7 => Self::UpLeft,
             _ => Self::None,
         }
+    }
+}
+
+impl Default for DPad {
+    fn default() -> Self {
+        Self::None
     }
 }

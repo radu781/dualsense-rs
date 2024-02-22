@@ -1,6 +1,6 @@
 use hidapi::{HidApi, HidDevice};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ffi::CString,
     sync::{Arc, Mutex},
     thread::{self, sleep, JoinHandle},
@@ -10,9 +10,11 @@ use std::{
 use crate::{
     combo::{Combo, ComboId},
     properties::{
+        analog_pad::AnalogPad,
         dpad::DPad,
         property::{ComboProperty, InputProperty, OutputProperty},
         symbols::Symbols,
+        trigger::Trigger,
         trigger_effect::TriggerEffect,
         valuetype::ValueType,
     },
@@ -23,16 +25,18 @@ const PRODUCT_ID: u16 = 3302;
 const PACKET_SIZE: usize = 64;
 
 type CBFunction = Box<dyn FnMut(ValueType) + Send>;
+type Artex<T> = Arc<Mutex<T>>;
 
 /// Main struct used for interacting with the controller. Everything is thread safe to allow reading, writing,
 /// setting callbacks after the `Self::run` method is called and to send data.
 pub struct DualSense {
-    device: Arc<Mutex<HidDevice>>,
-    callbacks: Arc<Mutex<HashMap<InputProperty, Vec<CBFunction>>>>,
-    callback_cache: Arc<Mutex<HashMap<InputProperty, ValueType>>>,
-    output_cache: Arc<Mutex<HashMap<OutputProperty, u8>>>,
-    output_cache_changed: Arc<Mutex<bool>>,
-    combos: Arc<Mutex<Vec<Combo>>>,
+    device: Artex<HidDevice>,
+    callbacks: Artex<HashMap<InputProperty, Vec<CBFunction>>>,
+    callbacks_v2: Artex<HashMap<ComboProperty, Vec<CBFunction>>>,
+    callback_cache_v2: Artex<HashMap<ComboProperty, ValueType>>,
+    output_cache: Artex<HashMap<OutputProperty, u8>>,
+    output_cache_changed: Artex<bool>,
+    combos: Artex<Vec<Combo>>,
 }
 
 impl DualSense {
@@ -61,18 +65,19 @@ impl DualSense {
         Self {
             device: Arc::new(Mutex::new(device)),
             callbacks: Arc::new(Mutex::new(HashMap::new())),
-            callback_cache: Arc::new(Mutex::new(HashMap::new())),
+            callback_cache_v2: Arc::new(Mutex::new(HashMap::new())),
             output_cache: Arc::new(Mutex::new(HashMap::new())),
             output_cache_changed: Arc::new(Mutex::new(false)),
             combos: Arc::new(Mutex::new(Vec::new())),
+            callbacks_v2: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Start listening to HID packets from the controller
     pub fn run(&mut self) -> JoinHandle<()> {
         let device = Arc::clone(&self.device);
-        let callbacks = Arc::clone(&self.callbacks);
-        let cache = Arc::clone(&self.callback_cache);
+        let callbacks_v2 = Arc::clone(&self.callbacks_v2);
+        let cache_v2 = Arc::clone(&self.callback_cache_v2);
         let output_cache = Arc::clone(&self.output_cache);
         let output_cache_changed = Arc::clone(&self.output_cache_changed);
         let combos = Arc::clone(&self.combos);
@@ -92,9 +97,9 @@ impl DualSense {
                 }
             }
 
-            Self::packet_received(
-                &mut callbacks.lock().unwrap(),
-                &mut cache.lock().unwrap(),
+            Self::packet_received_v2(
+                &mut callbacks_v2.lock().unwrap(),
+                &mut cache_v2.lock().unwrap(),
                 &mut combos.lock().unwrap(),
                 &buf,
             );
@@ -127,38 +132,14 @@ impl DualSense {
             .insert(OutputProperty::Blue, value);
     }
 
-    /// Provide a callback to be called when the left stick's x coordinate changes
-    /// left: 0x00, right: 0xFF
-    pub fn on_left_pad_x_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(u8) + Send + Sync,
-    {
-        self.register_u8(InputProperty::LeftPadX, cb);
+    /// Provide a callback to be called when the left stick's coordinates change
+    pub fn on_left_pad_changed(&mut self, cb: Box<dyn FnMut(AnalogPad) + Send>) {
+        self.register_pad(ComboProperty::LeftPad(AnalogPad::default()), cb);
     }
 
-    /// Provide a callback to be called when the left stick's y coordinate changes
-    /// up: 0x00, down: 0xFF
-    pub fn on_left_pad_y_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(u8) + Send + Sync,
-    {
-        self.register_u8(InputProperty::LeftPadY, cb);
-    }
-
-    /// Provide a callback to be called when the right stick's x coordinate changes
-    pub fn on_right_pad_x_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(u8) + Send + Sync,
-    {
-        self.register_u8(InputProperty::RightPadX, cb);
-    }
-
-    /// Provide a callback to be called when the right stick's y coordinate changes
-    pub fn on_right_pad_y_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(u8) + Send + Sync,
-    {
-        self.register_u8(InputProperty::RightPadY, cb);
+    /// Provide a callback to be called when the right stick's coordinates change
+    pub fn on_right_pad_changed(&mut self, cb: Box<dyn FnMut(AnalogPad) + Send>) {
+        self.register_pad(ComboProperty::RightPad(AnalogPad::default()), cb);
     }
 
     /// Provide a callback to be called when the L1 button is pressed
@@ -178,19 +159,13 @@ impl DualSense {
     }
 
     /// Provide a callback to be called when the L2 button value changes
-    pub fn on_l2_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(u8) + Send + Sync,
-    {
-        self.register_u8(InputProperty::L2, cb);
+    pub fn on_l2_changed(&mut self, cb: Box<dyn FnMut(Trigger) + Send>) {
+        self.register_trigger(ComboProperty::LT(Trigger::default()), cb);
     }
 
     /// Provide a callback to be called when the R2 button value changes
-    pub fn on_r2_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(u8) + Send + Sync,
-    {
-        self.register_u8(InputProperty::R2, cb);
+    pub fn on_r2_changed(&mut self, cb: Box<dyn FnMut(Trigger) + Send>) {
+        self.register_trigger(ComboProperty::RT(Trigger::default()), cb);
     }
 
     /// Provide a callback to be called when the L3 button is pressed
@@ -226,21 +201,13 @@ impl DualSense {
     }
 
     /// Provide a callback to be called when any dpad button is pressed
-    pub fn on_dpad_changed<F>(&mut self, cb: &'static F)
-    where
-        F: Fn(DPad) + Send + Sync,
-    {
-        self.register_dpad(InputProperty::DPad, cb);
+    pub fn on_dpad_changed(&mut self, cb: Box<dyn FnMut(DPad) + Send>) {
+        self.register_dpad(ComboProperty::DPad(DPad::default()), cb);
     }
 
     /// Provide a callback to be called when any symbol button is pressed
-    pub fn on_symbols_changed(&mut self, mut cb: Box<dyn FnMut(Symbols) + Send>) {
-        self.callbacks
-            .lock()
-            .unwrap()
-            .entry(InputProperty::Symbols)
-            .or_default()
-            .push(Box::new(move |x| cb(x.to_symbol())));
+    pub fn on_symbols_changed(&mut self, cb: Box<dyn FnMut(Symbols) + Send>) {
+        self.register_symbols(ComboProperty::Symbol(Symbols::default()), cb);
     }
 
     /// Provide a callback to be called when the mute button is pressed
@@ -413,6 +380,33 @@ impl DualSense {
         self.register_u8(InputProperty::R2FeedbackValue, cb);
     }
 
+    fn register_pad(&mut self, prop: ComboProperty, mut cb: Box<dyn FnMut(AnalogPad) + Send>) {
+        self.callbacks_v2
+            .lock()
+            .unwrap()
+            .entry(prop)
+            .or_default()
+            .push(Box::new(move |x| cb(x.to_analog())));
+    }
+
+    fn register_symbols(&mut self, prop: ComboProperty, mut cb: Box<dyn FnMut(Symbols) + Send>) {
+        self.callbacks_v2
+            .lock()
+            .unwrap()
+            .entry(prop)
+            .or_default()
+            .push(Box::new(move |x| cb(x.to_symbol())));
+    }
+
+    fn register_trigger(&mut self, prop: ComboProperty, mut cb: Box<dyn FnMut(Trigger) + Send>) {
+        self.callbacks_v2
+            .lock()
+            .unwrap()
+            .entry(prop)
+            .or_default()
+            .push(Box::new(move |x| cb(x.to_trigger())));
+    }
+
     fn register_u8<F>(&mut self, prop: InputProperty, cb: &'static F)
     where
         F: Fn(u8) + Send + Sync,
@@ -449,28 +443,13 @@ impl DualSense {
             .push(Box::new(move |x| cb(x.to_i16())));
     }
 
-    fn register_dpad<F>(&mut self, prop: InputProperty, cb: &'static F)
-    where
-        F: Fn(DPad) + Send + Sync,
-    {
-        self.callbacks
+    fn register_dpad(&mut self, prop: ComboProperty, mut cb: Box<dyn FnMut(DPad) + Send>) {
+        self.callbacks_v2
             .lock()
             .unwrap()
             .entry(prop)
             .or_default()
             .push(Box::new(move |x| cb(x.to_dpad())));
-    }
-
-    fn register_symbols<F>(&mut self, prop: InputProperty, cb: &'static F)
-    where
-        F: Fn(Symbols) + Send + Sync,
-    {
-        self.callbacks
-            .lock()
-            .unwrap()
-            .entry(prop)
-            .or_default()
-            .push(Box::new(move |x| cb(x.to_symbol())));
     }
 
     fn register_bool<F>(&mut self, prop: InputProperty, cb: &'static F)
@@ -483,6 +462,35 @@ impl DualSense {
             .entry(prop)
             .or_default()
             .push(Box::new(move |x| cb(x.to_bool())));
+    }
+
+    fn packet_received_v2(
+        callbacks: &mut HashMap<ComboProperty, Vec<CBFunction>>,
+        cache: &mut HashMap<ComboProperty, ValueType>,
+        combos: &mut [Combo],
+        data: &[u8; 64],
+    ) {
+        callbacks.iter_mut().for_each(|(prop, cbs)| {
+            let new_val = Self::extract_bytes_v2(prop, data);
+            let mut update = false;
+            match cache.get_mut(prop) {
+                Some(old_val) if old_val != &new_val => {
+                    update = true;
+                }
+                None => {
+                    update = true;
+                }
+                _ => {}
+            }
+
+            if update {
+                cache.insert(*prop, new_val);
+                cbs.iter_mut().for_each(|cb| cb(new_val));
+                for combo in combos.iter_mut() {
+                    combo.next_input(prop);
+                }
+            }
+        })
     }
 
     fn packet_received(
@@ -715,7 +723,10 @@ impl DualSense {
         cb: Box<dyn Fn() + Send + Sync>,
     ) -> ComboId {
         let id = self.combos.lock().unwrap().len();
-        self.combos.lock().unwrap().push(Combo::new(keys, cb, id, duration));
+        self.combos
+            .lock()
+            .unwrap()
+            .push(Combo::new(keys, cb, id, duration));
         ComboId::new(id)
     }
 
@@ -728,6 +739,25 @@ impl DualSense {
             println!();
         });
         println!()
+    }
+
+    fn extract_bytes_v2(prop: &ComboProperty, data: &[u8; 64]) -> ValueType {
+        if prop.offset().is_whole_byte() {
+            prop.convert(&data.as_slice()[prop.offset().bytes])
+        } else if prop.offset().is_single_byte() {
+            let mut out = 0u8;
+            let byte = prop.offset().bytes.start;
+            let val = data.as_slice()[byte];
+
+            for i in prop.offset().bits {
+                let offset = i - prop.offset().bits.start;
+                let current_bit = (val & (1 << i)) >> i;
+                out |= current_bit << offset;
+            }
+            prop.convert(&[out])
+        } else {
+            unreachable!()
+        }
     }
 
     fn extract_bytes(prop: &InputProperty, data: &[u8; 64]) -> ValueType {

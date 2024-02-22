@@ -1,16 +1,14 @@
-use super::{dpad::DPad, offset::Offset, symbols::Symbols, valuetype::ValueType};
+use std::hash::Hash;
+
+use super::{
+    analog_pad::AnalogPad, dpad::DPad, offset::Offset, symbols::Symbols, trigger::Trigger,
+    valuetype::ValueType,
+};
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
 pub(crate) enum InputProperty {
-    LeftPadX,
-    LeftPadY,
-    RightPadX,
-    RightPadY,
-
     L1,
     R1,
-    L2,
-    R2,
     L3,
     R3,
 
@@ -22,9 +20,6 @@ pub(crate) enum InputProperty {
     TouchPad,
     // TODO: broken
     PlayStation,
-
-    DPad,
-    Symbols,
 
     GyroscopeX,
     GyroscopeY,
@@ -52,14 +47,6 @@ pub(crate) enum InputProperty {
 impl InputProperty {
     pub(crate) fn offset(&self) -> Offset {
         match self {
-            InputProperty::LeftPadX => Offset::bytes(1..2),
-            InputProperty::LeftPadY => Offset::bytes(2..3),
-            InputProperty::RightPadX => Offset::bytes(3..4),
-            InputProperty::RightPadY => Offset::bytes(4..5),
-
-            InputProperty::L2 => Offset::bytes(5..6),
-            InputProperty::R2 => Offset::bytes(6..7),
-
             InputProperty::L1 => Offset::bit(9, 0),
             InputProperty::R1 => Offset::bit(9, 1),
             InputProperty::Share => Offset::bit(9, 4),
@@ -67,8 +54,6 @@ impl InputProperty {
             InputProperty::L3 => Offset::bit(9, 6),
             InputProperty::R3 => Offset::bit(9, 7),
 
-            InputProperty::DPad => Offset::bits(8, 0..4),
-            InputProperty::Symbols => Offset::bits(8, 4..8),
             InputProperty::PlayStation => Offset::bit(10, 0),
             InputProperty::TouchPad => Offset::bit(10, 1),
             InputProperty::Mute => Offset::bit(10, 2),
@@ -98,16 +83,6 @@ impl InputProperty {
 
     pub(crate) fn convert(&self, data: &[u8]) -> ValueType {
         match self {
-            InputProperty::LeftPadX
-            | InputProperty::LeftPadY
-            | InputProperty::RightPadX
-            | InputProperty::RightPadY
-            | InputProperty::L2
-            | InputProperty::R2 => ValueType::U8(*data.first().unwrap()),
-
-            InputProperty::DPad => ValueType::Pad((*data.first().unwrap()).into()),
-            InputProperty::Symbols => ValueType::Symbol((*data.first().unwrap()).into()),
-
             InputProperty::L1
             | InputProperty::R1
             | InputProperty::L3
@@ -128,20 +103,26 @@ impl InputProperty {
 
             InputProperty::TouchPadFinger1Active => ValueType::Bool(data[0] & 0x80 == 0),
             InputProperty::TouchPad1Id => ValueType::U8(data[0] & 0x7F),
-            InputProperty::TouchPad1X => ValueType::U16(((data[1] as u16 & 0x0F) << 8) | data[0] as u16),
+            InputProperty::TouchPad1X => {
+                ValueType::U16(((data[1] as u16 & 0x0F) << 8) | data[0] as u16)
+            }
             InputProperty::TouchPad1Y => {
                 ValueType::U16(((data[1] as u16) << 4) | (data[0] as u16 & 0xF0) >> 4)
             }
             InputProperty::TouchPadFinger2Active => ValueType::Bool(data[0] & 0x80 == 0),
             InputProperty::TouchPad2Id => ValueType::U8(data[0] & 0x7F),
-            InputProperty::TouchPad2X => ValueType::U16((data[1] as u16 & 0x0F) << 8 | data[0] as u16),
+            InputProperty::TouchPad2X => {
+                ValueType::U16((data[1] as u16 & 0x0F) << 8 | data[0] as u16)
+            }
             InputProperty::TouchPad2Y => {
                 ValueType::U16(((data[1] as u16) << 4) | (data[0] as u16 & 0xF0) >> 4)
             }
             InputProperty::R2FeedbackOn | InputProperty::L2FeedbackOn => {
                 ValueType::Bool(data[0] & 0x10 == 0x10)
             }
-            InputProperty::R2FeedbackValue | InputProperty::L2FeedbackValue => ValueType::U8(data[0] & 0x0F),
+            InputProperty::R2FeedbackValue | InputProperty::L2FeedbackValue => {
+                ValueType::U8(data[0] & 0x0F)
+            }
         }
     }
 }
@@ -173,7 +154,7 @@ pub(crate) enum OutputProperty {
     LeftEffectParameter5,
     LeftEffectParameter6,
     LeftEffectParameter7,
-    
+
     PlayerLight,
     Mute,
 }
@@ -203,15 +184,54 @@ impl OutputProperty {
             OutputProperty::LeftEffectParameter5 => 27,
             OutputProperty::LeftEffectParameter6 => 28,
             OutputProperty::LeftEffectParameter7 => 29,
-            
+
             OutputProperty::PlayerLight => 44,
         }
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ComboProperty {
     Symbol(Symbols),
     DPad(DPad),
     LB,
     RB,
+    LT(Trigger),
+    RT(Trigger),
+    LeftPad(AnalogPad),
+    RightPad(AnalogPad),
+}
+
+impl ComboProperty {
+    pub(crate) fn offset(self) -> Offset {
+        match self {
+            ComboProperty::LeftPad(_) => Offset::bytes(1..3),
+            ComboProperty::RightPad(_) => Offset::bytes(3..5),
+            ComboProperty::Symbol(_) => Offset::bits(8, 4..8),
+            ComboProperty::DPad(_) => Offset::bits(8, 0..4),
+            ComboProperty::LB => Offset::bit(9, 0),
+            ComboProperty::RB => Offset::bit(9, 1),
+            ComboProperty::LT(_) => Offset::byte(5),
+            ComboProperty::RT(_) => Offset::byte(6),
+        }
+    }
+}
+
+impl ComboProperty {
+    pub(crate) fn convert(&self, data: &[u8]) -> ValueType {
+        match self {
+            ComboProperty::Symbol(_) => ValueType::U8(data[0]),
+            ComboProperty::DPad(_) => ValueType::U8(data[0]),
+            ComboProperty::LB => todo!(),
+            ComboProperty::RB => todo!(),
+            ComboProperty::LeftPad(_) => {
+                ValueType::Combo(Self::LeftPad(AnalogPad::new(data[0], data[1])))
+            }
+            ComboProperty::RightPad(_) => {
+                ValueType::Combo(Self::RightPad(AnalogPad::new(data[0], data[1])))
+            }
+            ComboProperty::LT(_) => ValueType::Combo(Self::LT(Trigger::new(data[0]))),
+            ComboProperty::RT(_) => ValueType::Combo(Self::RT(Trigger::new(data[0]))),
+        }
+    }
 }

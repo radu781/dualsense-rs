@@ -1,5 +1,5 @@
 /// Symbols values
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Symbols {
     Square = 1,
     Cross = 2,
@@ -17,5 +17,11 @@ impl From<u8> for Symbols {
             8 => Self::Triangle,
             _ => Self::None,
         }
+    }
+}
+
+impl Default for Symbols {
+    fn default() -> Self {
+        Self::None
     }
 }

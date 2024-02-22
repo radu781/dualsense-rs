@@ -4,3 +4,6 @@ pub mod property;
 pub mod symbols;
 pub mod trigger_effect;
 pub(crate) mod valuetype;
+pub mod analog_pad;
+pub mod traits;
+pub mod trigger;

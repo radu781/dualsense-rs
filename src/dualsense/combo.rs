@@ -58,7 +58,7 @@ impl Combo {
     }
 }
 
-struct ComboRequirement {
+pub(crate) struct ComboRequirement {
     cb: Box<dyn Fn(&ComboProperty) -> bool + Send + Sync>,
     satisfied: bool,
 }
