@@ -8,6 +8,7 @@ impl Trigger {
         Self { 0: value }
     }
 }
+
 impl Normalizable for Trigger {
     fn normalize(&self) -> f32 {
         self.0 as f32 / 255.0

@@ -1,4 +1,4 @@
-use super::traits::Normalizable;
+use super::{property::ComboProperty, traits::Normalizable};
 
 const ANALOG_PAD_MIDDLE: u8 = u8::MAX / 2;
 /// About 90
@@ -55,6 +55,14 @@ impl AnalogPad {
         (ANALOG_PAD_MIDDLE - 10..=ANALOG_PAD_MIDDLE + 10).contains(&self.x.0)
             && (ANALOG_PAD_MIDDLE - 10..=ANALOG_PAD_MIDDLE + 10).contains(&self.y.0)
     }
+
+    pub(crate) fn to_left_combo(self) -> ComboProperty {
+        ComboProperty::LeftPad(self)
+    }
+
+    pub(crate) fn to_right_combo(self) -> ComboProperty {
+        ComboProperty::RightPad(self)
+    }
 }
 
 impl Default for AnalogPad {
@@ -75,7 +83,16 @@ impl Normalizable for Stick {
     }
 }
 
-#[derive(Debug)]
+impl From<ComboProperty> for AnalogPad {
+    fn from(value: ComboProperty) -> Self {
+        match value {
+            ComboProperty::LeftPad(v) | ComboProperty::RightPad(v) => v,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum DirectionQuadrant {
     North,
     East,

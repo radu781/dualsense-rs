@@ -1,6 +1,8 @@
 # DualSense
 
 Rust programmatic wrapper over HID messages sent and received by the PS5 DualSense controller.
+Allows support for simultaneous key presses or combos that require consecutive presses in a given
+time interval(wip).
 
 ## Usage
 

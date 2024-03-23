@@ -2,11 +2,11 @@ use std::time::{Duration, Instant};
 
 use crate::properties::property::ComboProperty;
 
-pub(crate) struct Combo {
+pub struct Combo {
     pub(crate) cbs: Vec<ComboRequirement>,
     pub(crate) on_success: Box<dyn Fn() + Send + Sync>,
     pub(crate) duration: Duration,
-    pub(crate) id: usize,
+    pub(crate) id: ComboId,
     start_time: Instant,
 }
 
@@ -14,7 +14,6 @@ impl Combo {
     pub(crate) fn new(
         cbs: Vec<Box<dyn Fn(&ComboProperty) -> bool + Send + Sync>>,
         on_success: Box<dyn Fn() + Send + Sync>,
-        index: usize,
         duration: Duration,
     ) -> Self {
         let callbacks = cbs
@@ -28,9 +27,14 @@ impl Combo {
             cbs: callbacks,
             on_success,
             duration,
-            id: index,
+            id: ComboId { id: 0 },
             start_time: Instant::now(),
         }
+    }
+
+    pub(crate) fn with_id(mut self, id: ComboId) -> Self {
+        self.id = id;
+        self
     }
 
     pub(crate) fn next_input(&mut self, property: &ComboProperty) {
@@ -59,24 +63,25 @@ impl Combo {
 }
 
 pub(crate) struct ComboRequirement {
-    cb: Box<dyn Fn(&ComboProperty) -> bool + Send + Sync>,
-    satisfied: bool,
+    pub(crate) cb: Box<dyn Fn(&ComboProperty) -> bool + Send + Sync>,
+    pub(crate) satisfied: bool,
 }
 
 impl PartialEq for Combo {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id.id == other.id.id
     }
 }
 
 impl Eq for Combo {}
 
+#[derive(Clone, Copy)]
 pub struct ComboId {
     id: usize,
 }
 
 impl ComboId {
-    pub fn new(id: usize) -> Self {
+    pub(crate) fn new(id: usize) -> Self {
         Self { id }
     }
 }

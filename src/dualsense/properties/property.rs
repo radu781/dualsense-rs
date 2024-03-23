@@ -194,8 +194,8 @@ impl OutputProperty {
 pub enum ComboProperty {
     Symbol(Symbols),
     DPad(DPad),
-    LB,
-    RB,
+    LB(bool),
+    RB(bool),
     LT(Trigger),
     RT(Trigger),
     LeftPad(AnalogPad),
@@ -203,35 +203,85 @@ pub enum ComboProperty {
 }
 
 impl ComboProperty {
+    pub(crate) fn base(&self) -> Self {
+        match self {
+            ComboProperty::Symbol(_) => Self::Symbol(Symbols::None),
+            ComboProperty::DPad(_) => Self::DPad(DPad::None),
+            ComboProperty::LB(_) => Self::LB(false),
+            ComboProperty::RB(_) => Self::RB(false),
+            ComboProperty::LT(_) => Self::LT(Trigger::new(0)),
+            ComboProperty::RT(_) => Self::RT(Trigger::new(0)),
+            ComboProperty::LeftPad(_) => Self::LeftPad(AnalogPad::new(0, 0)),
+            ComboProperty::RightPad(_) => Self::RightPad(AnalogPad::new(0, 0)),
+        }
+    }
+
     pub(crate) fn offset(self) -> Offset {
         match self {
             ComboProperty::LeftPad(_) => Offset::bytes(1..3),
             ComboProperty::RightPad(_) => Offset::bytes(3..5),
             ComboProperty::Symbol(_) => Offset::bits(8, 4..8),
             ComboProperty::DPad(_) => Offset::bits(8, 0..4),
-            ComboProperty::LB => Offset::bit(9, 0),
-            ComboProperty::RB => Offset::bit(9, 1),
+            ComboProperty::LB(_) => Offset::bit(9, 0),
+            ComboProperty::RB(_) => Offset::bit(9, 1),
             ComboProperty::LT(_) => Offset::byte(5),
             ComboProperty::RT(_) => Offset::byte(6),
+        }
+    }
+
+    // TODO: there must be a better way to do this...
+
+    pub(crate) fn to_dpad(self) -> DPad {
+        match self {
+            ComboProperty::Symbol(_) => todo!(),
+            ComboProperty::DPad(dpad) => dpad,
+            ComboProperty::LB(_) => todo!(),
+            ComboProperty::RB(_) => todo!(),
+            ComboProperty::LT(_) => todo!(),
+            ComboProperty::RT(_) => todo!(),
+            ComboProperty::LeftPad(_) => todo!(),
+            ComboProperty::RightPad(_) => todo!(),
+        }
+    }
+
+    pub(crate) fn to_symbols(self) -> Symbols {
+        match self {
+            ComboProperty::Symbol(sym) => sym,
+            ComboProperty::DPad(_) => todo!(),
+            ComboProperty::LB(_) => todo!(),
+            ComboProperty::RB(_) => todo!(),
+            ComboProperty::LT(_) => todo!(),
+            ComboProperty::RT(_) => todo!(),
+            ComboProperty::LeftPad(_) => todo!(),
+            ComboProperty::RightPad(_) => todo!(),
+        }
+    }
+
+    pub(crate) fn to_trigger(self) -> Trigger {
+        match self {
+            ComboProperty::Symbol(_) => todo!(),
+            ComboProperty::DPad(_) => todo!(),
+            ComboProperty::LB(_) => todo!(),
+            ComboProperty::RB(_) => todo!(),
+            ComboProperty::LT(v) => v,
+            ComboProperty::RT(v) => v,
+            ComboProperty::LeftPad(_) => todo!(),
+            ComboProperty::RightPad(_) => todo!(),
         }
     }
 }
 
 impl ComboProperty {
-    pub(crate) fn convert(&self, data: &[u8]) -> ValueType {
+    pub(crate) fn convert(&self, data: &[u8]) -> Self {
         match self {
-            ComboProperty::Symbol(_) => ValueType::U8(data[0]),
-            ComboProperty::DPad(_) => ValueType::U8(data[0]),
-            ComboProperty::LB => todo!(),
-            ComboProperty::RB => todo!(),
-            ComboProperty::LeftPad(_) => {
-                ValueType::Combo(Self::LeftPad(AnalogPad::new(data[0], data[1])))
-            }
-            ComboProperty::RightPad(_) => {
-                ValueType::Combo(Self::RightPad(AnalogPad::new(data[0], data[1])))
-            }
-            ComboProperty::LT(_) => ValueType::Combo(Self::LT(Trigger::new(data[0]))),
-            ComboProperty::RT(_) => ValueType::Combo(Self::RT(Trigger::new(data[0]))),
+            ComboProperty::Symbol(_) => ComboProperty::Symbol(data[0].into()),
+            ComboProperty::DPad(_) => ComboProperty::DPad(data[0].into()),
+            ComboProperty::LB(_) => ComboProperty::LB(data[0] == 0x01),
+            ComboProperty::RB(_) => ComboProperty::RB(data[0] == 0x01),
+            ComboProperty::LeftPad(_) => ComboProperty::LeftPad(AnalogPad::new(data[0], data[1])),
+            ComboProperty::RightPad(_) => ComboProperty::RightPad(AnalogPad::new(data[0], data[1])),
+            ComboProperty::LT(_) => ComboProperty::LT(Trigger::new(data[0])),
+            ComboProperty::RT(_) => ComboProperty::RT(Trigger::new(data[0])),
         }
     }
 }

@@ -7,3 +7,4 @@ pub(crate) mod valuetype;
 pub mod analog_pad;
 pub mod traits;
 pub mod trigger;
+pub mod combo_builder;

@@ -13,6 +13,11 @@ pub(crate) enum ValueType {
     Combo(ComboProperty),
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum NewValueType {
+    Combo(ComboProperty),
+}
+
 impl ValueType {
     pub(crate) fn to_u8(self) -> u8 {
         match self {
